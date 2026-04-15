@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 /// <summary>
-/// Контейнер для всех сохранённых результатов игр.
+/// Container for all saved game results.
 /// </summary>
 class ScoreData
 {
@@ -12,14 +12,13 @@ class ScoreData
 }
 
 /// <summary>
-/// Отвечает за загрузку и сохранение статистики игр в файл Data/scores.json.
+/// Responsible for loading and saving game statistics to the file Data/scores.json.
 /// </summary>
 static class ScoreManager
 {
-    
     private const string FilePath = "Data/scores.json";
 
-    /// <summary>Загружает все сохранённые результаты из файла.</summary>
+    /// <summary>Loads all saved results from the file.</summary>
     public static ScoreData Load()
     {
         if (!File.Exists(FilePath)) return new ScoreData();
@@ -27,10 +26,10 @@ static class ScoreManager
         return JsonSerializer.Deserialize<ScoreData>(json) ?? new ScoreData();
     }
 
-    /// <summary>Добавляет результат одной игры в файл статистики.</summary>
+    /// <summary>Adds the result of a single game to the statistics file.</summary>
     public static void Save(GameResult result)
     {
-        // Создаём папку Data, если её нет
+        // Create the Data directory if it does not exist
         var directory = Path.GetDirectoryName(FilePath);
         if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             Directory.CreateDirectory(directory);

@@ -5,28 +5,69 @@ using System.Threading;
 using System.Threading.Tasks;
 
 /// <summary>
-/// Основной класс игры «Слова». Управляет ходами, проверкой слов, таймером и завершением игры.
+/// Main game class for the "Words" game. Manages turns, word validation, timer, and game over.
 /// </summary>
 class Game
 {
-    // Словарь локализованных сообщений (русский/английский)
-    private Dictionary<string, string> messages;
+    // Constants for base word length restrictions
+    private const int MinBaseWordLength = 8;
+    private const int MaxBaseWordLength = 30;
 
-    private Player player1;
-    private Player player2;
-    private Player currentPlayer; // игрок, совершающий ход
-    private Player otherPlayer;    // второй игрок
+    // Predefined message dictionaries (created only once)
+    private static readonly Dictionary<string, string> EnglishMessages = new Dictionary<string, string>
+    {
+        {"welcome","Words Game"},
+        {"enterName","Enter name for Player {0}:"},
+        {"seconds","Seconds per move:"},
+        {"invalidSeconds","Invalid number"},
+        {"enterBase",$"Enter base word ({MinBaseWordLength}-{MaxBaseWordLength} letters):"},
+        {"invalidBase","Invalid word"},
+        {"turn","{0}'s turn"},
+        {"timeUp","{0} ran out of time!"},
+        {"invalidWord","Invalid word!"},
+        {"winner","Winner: {0}"},
+        {"used","Used words:"},
+        {"gameOver","Game over"}
+    };
 
-    private List<string> usedWords = new List<string>(); // использованные за игру слова
-    private string baseWord;       // базовое слово, из букв которого составляются ответы
-    private int timer;             // время на ход в секундах
+    private static readonly Dictionary<string, string> RussianMessages = new Dictionary<string, string>
+    {
+        {"welcome","Игра Слова"},
+        {"enterName","Введите имя игрока {0}:"},
+        {"seconds","Секунд на ход:"},
+        {"invalidSeconds","Неверное число"},
+        {"enterBase",$"Введите базовое слово ({MinBaseWordLength}-{MaxBaseWordLength} букв):"},
+        {"invalidBase","Неверное слово"},
+        {"turn","Ход игрока {0}"},
+        {"timeUp","{0} не успел!"},
+        {"invalidWord","Неверное слово!"},
+        {"winner","Победитель: {0}"},
+        {"used","Использованные слова:"},
+        {"gameOver","Игра окончена"}
+    };
+
+    // Dictionary of localized messages currently in use
+    internal Dictionary<string, string> messages;
+
+    internal Player player1;
+    internal Player player2;
+    private Player currentPlayer; // player whose turn it is
+    private Player otherPlayer;   // the other player
+
+    internal List<string> usedWords = new List<string>(); // words used during the game
+    private string baseWord;       // base word from which letters answers are composed
+    private int timer;             // time per turn in seconds
+
+    // Command handlers using full Strategy pattern
+    private Dictionary<string, ICommandHandler> commandHandlers;
 
     /// <summary>
-    /// Запускает игру: выбор языка, ввод имён, таймер, базовое слово, игровой цикл.
+    /// Starts the game: language selection, name input, timer, base word, game loop.
     /// </summary>
     public void Start()
     {
         messages = ChooseLanguage();
+        InitializeCommands();
 
         Print(messages["welcome"]);
 
@@ -46,13 +87,24 @@ class Game
         Print(messages["gameOver"]);
     }
 
-    /// <summary>Выводит строку на консоль.</summary>
-    private void Print(string text = "") => Console.WriteLine(text);
+    /// <summary>Initializes the dictionary that maps command strings to strategy objects.</summary>
+    private void InitializeCommands()
+    {
+        commandHandlers = new Dictionary<string, ICommandHandler>
+        {
+            ["/show-words"] = new ShowWordsCommand(),
+            ["/score"] = new ShowScoreCommand(),
+            ["/total-score"] = new ShowTotalScoreCommand()
+        };
+    }
 
-    /// <summary>Считывает строку с консоли, удаляя лишние пробелы.</summary>
+    /// <summary>Prints a string to the console.</summary>
+    internal void Print(string text = "") => Console.WriteLine(text);
+
+    /// <summary>Reads a trimmed string from the console.</summary>
     private string Read() => Console.ReadLine()?.Trim() ?? "";
 
-    /// <summary>Предлагает пользователю выбрать язык и возвращает соответствующий словарь сообщений.</summary>
+    /// <summary>Asks the user to choose a language and returns the corresponding message dictionary.</summary>
     private Dictionary<string, string> ChooseLanguage()
     {
         while (true)
@@ -63,56 +115,22 @@ class Game
 
             string choice = Read();
 
-            if (choice == "1") return CreateEnglish();
-            if (choice == "2") return CreateRussian();
+            if (choice == "1") return EnglishMessages;
+            if (choice == "2") return RussianMessages;
 
             Print("Invalid choice / Неверный выбор");
         }
     }
 
-    /// <summary>Возвращает словарь сообщений на английском языке.</summary>
-    private Dictionary<string, string> CreateEnglish() => new Dictionary<string, string>
-    {
-        {"welcome","Words Game"},
-        {"enterName","Enter name for Player {0}:"},
-        {"seconds","Seconds per move:"},
-        {"invalidSeconds","Invalid number"},
-        {"enterBase","Enter base word (8-30 letters):"},
-        {"invalidBase","Invalid word"},
-        {"turn","{0}'s turn"},
-        {"timeUp","{0} ran out of time!"},
-        {"invalidWord","Invalid word!"},
-        {"winner","Winner: {0}"},
-        {"used","Used words:"},
-        {"gameOver","Game over"}
-    };
-
-    /// <summary>Возвращает словарь сообщений на русском языке.</summary>
-    private Dictionary<string, string> CreateRussian() => new Dictionary<string, string>
-    {
-        {"welcome","Игра Слова"},
-        {"enterName","Введите имя игрока {0}:"},
-        {"seconds","Секунд на ход:"},
-        {"invalidSeconds","Неверное число"},
-        {"enterBase","Введите базовое слово (8-30 букв):"},
-        {"invalidBase","Неверное слово"},
-        {"turn","Ход игрока {0}"},
-        {"timeUp","{0} не успел!"},
-        {"invalidWord","Неверное слово!"},
-        {"winner","Победитель: {0}"},
-        {"used","Использованные слова:"},
-        {"gameOver","Игра окончена"}
-    };
-
-    /// <summary>Запрашивает имя игрока.</summary>
-    /// <param name="n">Номер игрока (1 или 2).</param>
+    /// <summary>Asks for a player's name.</summary>
+    /// <param name="n">Player number (1 or 2).</param>
     private string AskName(int n)
     {
         Print(string.Format(messages["enterName"], n));
         return Read();
     }
 
-    /// <summary>Запрашивает время на ход в секундах (положительное целое число).</summary>
+    /// <summary>Asks for the time per turn in seconds (positive integer).</summary>
     private int AskTimer()
     {
         while (true)
@@ -123,7 +141,7 @@ class Game
         }
     }
 
-    /// <summary>Запрашивает базовое слово (длиной от 8 до 30 букв).</summary>
+    /// <summary>Asks for a base word (length between defined constants).</summary>
     private string AskBaseWord()
     {
         while (true)
@@ -131,13 +149,13 @@ class Game
             Print(messages["enterBase"]);
             string w = Read().ToLower();
 
-            if (w.Length >= 8 && w.Length <= 30 && w.All(char.IsLetter)) return w;
+            if (w.Length >= MinBaseWordLength && w.Length <= MaxBaseWordLength && w.All(char.IsLetter)) return w;
 
             Print(messages["invalidBase"]);
         }
     }
 
-    /// <summary>Основной игровой цикл. Пока игра не закончена, обрабатывает ходы игроков.</summary>
+    /// <summary>Main game loop. Processes player turns until the game ends.</summary>
     private void Run()
     {
         while (true)
@@ -172,8 +190,8 @@ class Game
         }
     }
 
-    /// <summary>Считывает слово с консоли с ограничением по времени.</summary>
-    /// <returns>Введённое слово в нижнем регистре или null, если время истекло.</returns>
+    /// <summary>Reads a word from the console with a time limit.</summary>
+    /// <returns>The entered word in lowercase, or null if time expired.</returns>
     private string GetWordWithTimer()
     {
         var tcs = new TaskCompletionSource<bool>();
@@ -186,9 +204,9 @@ class Game
         }
     }
 
-    /// <summary>Проверяет, является ли слово допустимым по правилам игры.</summary>
-    /// <param name="word">Проверяемое слово.</param>
-    /// <returns>true, если слово не пустое, не использовалось ранее и может быть составлено из букв базового слова.</returns>
+    /// <summary>Checks whether a word is valid according to game rules.</summary>
+    /// <param name="word">The word to check.</param>
+    /// <returns>true if the word is not empty, hasn't been used before, and can be formed from the base word's letters.</returns>
     private bool IsValid(string word)
     {
         if (string.IsNullOrWhiteSpace(word)) return false;
@@ -205,7 +223,7 @@ class Game
         return true;
     }
 
-    /// <summary>Меняет местами текущего и другого игрока.</summary>
+    /// <summary>Swaps the current and the other player.</summary>
     private void SwapPlayers()
     {
         var t = currentPlayer;
@@ -213,8 +231,8 @@ class Game
         otherPlayer = t;
     }
 
-    /// <summary>Завершает игру, объявляет победителя и сохраняет результат.</summary>
-    /// <param name="winner">Игрок-победитель.</param>
+    /// <summary>Ends the game, announces the winner, and saves the result.</summary>
+    /// <param name="winner">The winning player.</param>
     private void EndGame(Player winner)
     {
         Print(string.Format(messages["winner"], winner.Name));
@@ -227,40 +245,18 @@ class Game
         });
     }
 
-    /// <summary>Обрабатывает команды, введённые с префиксом '/'.</summary>
-    /// <param name="cmd">Команда (например, /show-words, /score, /total-score).</param>
+    /// <summary>Handles commands entered with a '/' prefix using the Strategy pattern.</summary>
+    /// <param name="cmd">Command string (e.g., "/show-words").</param>
     private void HandleCommand(string cmd)
     {
-        if (cmd == "/show-words")
+        if (commandHandlers.TryGetValue(cmd, out ICommandHandler handler))
         {
-            Print(messages["used"]);
-            foreach (var w in usedWords)
-                Print(w);
+            handler.Execute(this);
         }
-        else if (cmd == "/score")
-        {
-            var data = ScoreManager.Load();
-
-            int p1 = data.Results.Count(r => r.Winner == player1.Name);
-            int p2 = data.Results.Count(r => r.Winner == player2.Name);
-
-            Print($"{player1.Name}: {p1}");
-            Print($"{player2.Name}: {p2}");
-        }
-        else if (cmd == "/total-score")
-        {
-            var data = ScoreManager.Load();
-
-            var grouped = data.Results
-                .GroupBy(r => r.Winner)
-                .Select(g => new { Name = g.Key, Wins = g.Count() });
-
-            foreach (var g in grouped)
-                Print($"{g.Name}: {g.Wins}");
-        }
+        // Unknown commands are silently ignored
     }
 
-    /// <summary>Обработчик нажатия Ctrl+C. Сохраняет результат как поражение текущего игрока и завершает приложение.</summary>
+    /// <summary>Handler for Ctrl+C press. Saves the result as a loss for the current player and exits.</summary>
     private void OnExit(object sender, ConsoleCancelEventArgs e)
     {
         e.Cancel = true;

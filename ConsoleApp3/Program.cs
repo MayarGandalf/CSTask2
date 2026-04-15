@@ -1,9 +1,9 @@
 ﻿/// <summary>
-/// Точка входа в приложение.
+/// Application entry point.
 /// </summary>
 class Program
 {
-    /// <summary>Запускает игру.</summary>
+    /// <summary>Starts the game.</summary>
     static void Main()
     {
         new Game().Start();

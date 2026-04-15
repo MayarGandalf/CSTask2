@@ -1,14 +1,14 @@
 ﻿/// <summary>
-/// Представляет результат одной сыгранной партии.
+/// Represents the result of a played game.
 /// </summary>
 class GameResult
 {
-    /// <summary>Имя первого игрока.</summary>
+    /// <summary>Name of the first player.</summary>
     public string Player1 { get; set; }
 
-    /// <summary>Имя второго игрока.</summary>
+    /// <summary>Name of the second player.</summary>
     public string Player2 { get; set; }
 
-    /// <summary>Имя победителя.</summary>
+    /// <summary>Name of the winner.</summary>
     public string Winner { get; set; }
 }
